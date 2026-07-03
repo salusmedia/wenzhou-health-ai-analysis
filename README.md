@@ -3,9 +3,10 @@
 > 依托「温州医疗数据高铁」与 AI 大模型（GLM），为患者提供**全科视角**的智能健康解读服务。
 > 患者端部署于「健康温州」小程序，医生端为「HI 医生」（AI 云医院医护端），实现 **AI 初解读 + 医生把关 + 医生受益** 的完整闭环。
 
-线上体验（部署后填写）：
-- 患者端（健康温州小程序）：`/`
-- HI 医生端：`/doctor`
+线上体验：
+- 患者端（健康温州小程序）：https://wenzhou-health-ai-analysis-production.up.railway.app/
+- HI 医生端：https://wenzhou-health-ai-analysis-production.up.railway.app/doctor
+- 源码仓库：https://github.com/salusmedia/wenzhou-health-ai-analysis
 
 ---
 
