@@ -1,0 +1,20 @@
+{
+  "name": "wenzhou-health-ai-analysis",
+  "version": "1.0.0",
+  "private": true,
+  "description": "健康温州 · 个人医疗健康数据分析服务 —— 患者端（微信小程序）+ HI 医生端，AI 大模型对接 GLM",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "sql.js": "^1.12.0"
+  }
+}
