@@ -1,5 +1,5 @@
 'use strict';
-/* HI 医生端 —— AI 云医院医护端：医患同屏、解读把关、费用分成 */
+/* HI 医生端 —— AI 云医院医护端：患者提交材料查看、解读把关、机构统一结算的服务绩效 */
 let TOKEN = localStorage.getItem('wz_doctor_token') || '';
 let DOCTOR = null;
 let currentTab = 'home';
@@ -22,7 +22,7 @@ function flagChip(f){if(f==='H')return '<span class="chip red">偏高</span>';if
 function setTitle(t,back){el('topbarTitle').textContent=t;el('topbarBack').classList.toggle('show',!!back);}
 el('topbarBack').onclick=()=>{if(stack.length){stack.pop()();}else switchTab(currentTab);};
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
-function switchTab(tab){currentTab=tab;stack.length=0;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));el('tabbar').style.display='flex';({home:viewHome,consults:viewConsults,patients:viewPatients,earnings:viewEarnings}[tab])();}
+function switchTab(tab){currentTab=tab;stack.length=0;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));el('tabbar').style.display='flex';({home:viewHome,consults:viewConsults,patients:viewPatients,earnings:viewPerformance}[tab])();}
 function pushView(fn){stack.push(fn);el('tabbar').style.display='none';}
 function logout(){localStorage.removeItem('wz_doctor_token');localStorage.removeItem('wz_doctor');TOKEN='';DOCTOR=null;renderLogin();}
 
@@ -60,15 +60,15 @@ async function viewHome(){
       <div class="stat-box"><b>${d.stats.pendingConsults}</b><span>待接诊 / 待解读</span></div>
       <div class="stat-box"><b>${d.stats.patients}</b><span>我的患者</span></div>
       <div class="stat-box"><b>${d.stats.reviews}</b><span>累计解读</span></div>
-      <div class="stat-box"><b>¥${d.stats.earnings}</b><span>解读分成收入</span></div>
+      <div class="stat-box"><b>${d.stats.points}</b><span>服务绩效点（机构结算）</span></div>
     </div>
     <div class="card">
       <h3><span class="bar"></span>服务闭环</h3>
       <div style="font-size:13.5px;line-height:1.9;color:#334155">
         <div>① <b>AI 初步解读</b>：患者先由 AI 完成健康数据整体解读与诊前准备</div>
-        <div>② <b>一键连通</b>：患者把 AI 分析结果推送到您的医护端</div>
-        <div>③ <b>分析结果医患同屏</b>：您看到与患者完全一致的分析结果</div>
-        <div>④ <b>解读把关 + 获得分成</b>：您给出专业意见，获得解读费用分成</div>
+        <div>② <b>患者提交材料</b>：患者把 AI 分析结果作为材料提交到您的医护端</div>
+        <div>③ <b>分析结果医患同屏</b>：您看到与患者一致的分析（不自动进入病历）</div>
+        <div>④ <b>解读把关 + 服务绩效</b>：您给出专业意见，服务量由机构统一结算为绩效/劳务补偿</div>
       </div>
     </div>
     <button class="btn" onclick="switchTab('consults')">🩺 查看待接诊与医患同屏</button>
@@ -105,7 +105,7 @@ async function openConsult(id){
   if(a){
     const c=a.content;
     analysisHtml=`<div class="samescreen">
-      <div class="same-screen-badge">🖥️ 分析结果医患同屏 · 与患者完全一致</div>
+      <div class="same-screen-badge">🖥️ 医患同屏 · 患者提交的 AI 材料（不自动进入病历）</div>
       <h3 style="margin:8px 0 6px">${esc(a.title)}</h3>
       ${c.narrative?`<div style="font-size:13.5px;line-height:1.7;white-space:pre-wrap">${esc(c.narrative)}</div>`:''}
       ${renderAnalysisBody(c)}
@@ -125,13 +125,14 @@ async function openConsult(id){
     ${analysisHtml}
     ${d.reviews.length?`<div class="card"><h3><span class="bar"></span>历史解读意见</h3>${d.reviews.map(r=>`<div class="notice green" style="margin-bottom:8px"><b>解读：</b>${esc(r.comment)}${r.advice?'<br><b>建议：</b>'+esc(r.advice):''}<div class="ls" style="margin-top:4px">${r.created_at}</div></div>`).join('')}</div>`:''}
     <div class="card review-box"><h3><span class="bar"></span>解读把关 · 专业意见</h3>
-      <textarea id="rvComment" placeholder="对 AI 关键结论的解读、确认或修正…">${d.consult.status==='待接诊'?'':''}</textarea>
+      <textarea id="rvComment" placeholder="对 AI 关键结论的解读、确认或修正…"></textarea>
       <textarea id="rvAdvice" placeholder="给患者的随访 / 用药 / 复查建议…" style="min-height:56px"></textarea>
       <div class="btn-row">
         ${d.consult.status==='待接诊'?`<button class="btn ghost" onclick="acceptConsult(${id})">接诊</button>`:''}
-        <button class="btn" onclick="submitReview(${id})">提交解读并获得分成</button>
+        <button class="btn" onclick="submitReview(${id})">提交解读把关</button>
+        <button class="btn ghost" onclick="citeIntoRecord(${id})">✍️ 手动确认引用进病历</button>
       </div>
-      <div class="muted" style="margin-top:8px">提交后系统将按结算周期为您核算"单次解读"费用分成（示意比例 50%）。</div>
+      <div class="muted" style="margin-top:8px">解读服务量由所属机构统一结算为绩效/劳务补偿，与药品、检查、处方、转诊及患者付费金额均无关。AI 内容不会自动进入病历，需您手动确认引用。</div>
     </div>
   `;
 }
@@ -156,9 +157,14 @@ async function submitReview(id){
   if(!comment){toast('请填写解读意见');return;}
   try{
     const r=await api('/api/doctor/consults/'+id+'/review',{method:'POST',body:{comment,advice}});
-    toast(`解读已提交，获得分成 ¥${r.settled.doctor_share}`);
+    toast(`解读已提交，记 ${r.service.points} 个服务绩效点（机构统一结算）`);
     setTimeout(()=>{stack.pop();viewConsults();},900);
   }catch(e){toast(e.message);}
+}
+async function citeIntoRecord(id){
+  if(!confirm('确认将本次 AI 解读作为参考手动引用进正式医疗意见？系统将保留 AI 来源、版本与确认记录。'))return;
+  try{const r=await api('/api/doctor/consults/'+id+'/cite',{method:'POST'});toast(r.message);}
+  catch(e){toast(e.message);}
 }
 
 // ---------- 我的患者 ----------
@@ -170,18 +176,18 @@ async function viewPatients(){
   <div class="notice green">HI 医生直连拓展医患连接与随访服务的新场景，患者带着结构化 AI 摘要就诊，沟通效率显著提升。</div>`;
 }
 
-// ---------- 解读收入 ----------
-async function viewEarnings(){
-  setTitle('解读收入 · 分成');el('tabbar').style.display='flex';
+// ---------- 服务绩效（机构统一结算，取代个人分成）----------
+async function viewPerformance(){
+  setTitle('服务绩效 · 机构结算');el('tabbar').style.display='flex';
   const s=el('screen');s.innerHTML=loading();
-  const d=await api('/api/doctor/earnings');
+  const d=await api('/api/doctor/performance');
   s.innerHTML=`
     <div class="stat-grid" style="margin-bottom:14px">
-      <div class="stat-box"><b>¥${d.total}</b><span>累计分成</span></div>
-      <div class="stat-box"><b>¥${d.pending}</b><span>待结算</span></div>
+      <div class="stat-box"><b>${d.totalPoints}</b><span>累计服务绩效点</span></div>
+      <div class="stat-box"><b>${d.pendingPoints}</b><span>待机构结算</span></div>
     </div>
-    <div class="card"><h3><span class="bar"></span>分成明细</h3>${d.orders.length?d.orders.map(o=>`<div class="li"><div><div class="lt">${esc(o.product)} · ${esc(o.patient_name)}</div><div class="ls">${o.created_at} · 订单¥${o.amount} · 分成比例${Math.round((o.doctor_share/o.amount)*100)}%</div></div><div style="text-align:right"><b style="color:#0f766e">+¥${o.doctor_share}</b><div class="ls">${o.status}</div></div></div>`).join(''):'<div class="muted">暂无分成记录。当您为患者解读 AI 分析结果后，将自动产生分成。</div>'}</div>
-    <div class="notice">💡 按次解读服务与会员订阅收入均设医生分成比例，按结算周期自动核算、透明发放，让专业解读劳动获得阳光回报。</div>
+    <div class="card"><h3><span class="bar"></span>服务绩效明细</h3>${d.logs.length?d.logs.map(o=>`<div class="li"><div><div class="lt">${esc(o.service_type)} · ${esc(o.patient_name)}</div><div class="ls">${o.created_at} · 结算机构：${esc(o.settle_org)}</div></div><div style="text-align:right"><b style="color:#0f766e">+${o.workload_points} 点</b><div class="ls">${esc(o.status)}</div></div></div>`).join(''):'<div class="muted">暂无服务绩效记录。为患者提交解读把关后将记录服务量。</div>'}</div>
+    <div class="notice">💡 ${esc(d.note)}</div>
   `;
 }
 

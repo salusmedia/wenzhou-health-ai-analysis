@@ -95,6 +95,7 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;backgr
 .switch.on{background:var(--green)}
 .switch::after{content:'';position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .switch.on::after{left:22px}
+.switch.locked{opacity:.55;pointer-events:none}
 
 /* AI 助理对话 */
 .chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 52px - 64px - 28px)}

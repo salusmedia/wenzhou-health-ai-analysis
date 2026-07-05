@@ -82,7 +82,7 @@ npm start                 # 默认 http://localhost:3000
 | `JWT_SECRET` | JWT 签名密钥（生产请修改） |
 | `GLM_API_KEY` | 智谱 GLM API Key（申请：https://open.bigmodel.cn/），留空则用内置演示引擎 |
 | `GLM_BASE_URL` | GLM 端点，默认 `https://open.bigmodel.cn/api/paas/v4` |
-| `GLM_MODEL` | 模型名（如 GLM-5.2 / glm-4.5 / glm-4-plus），默认 `glm-4.5` |
+| `GLM_MODEL` | 模型名（默认 `glm-5.2`；私有化/专属实例部署见需求开发书 4.1） |
 
 ## 六、免责声明
 

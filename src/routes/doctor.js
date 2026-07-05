@@ -1,5 +1,5 @@
 'use strict';
-// HI 医生端：患者列表、医患同屏查看 AI 分析、解读把关、费用分成
+// HI 医生端（整合版第七章）：患者提交材料查看、解读把关、机构统一结算的服务绩效（非个人返佣）。
 const express = require('express');
 const db = require('../db');
 const { auth } = require('../middleware/auth');
@@ -14,11 +14,11 @@ router.get('/dashboard', (req, res) => {
   const pendingConsults = db.prepare("SELECT COUNT(*) c FROM consults WHERE doctor_id=? AND status IN ('待接诊','已接诊')").get(did).c;
   const patients = db.prepare('SELECT COUNT(*) c FROM doctor_patient WHERE doctor_id=?').get(did).c;
   const reviews = db.prepare('SELECT COUNT(*) c FROM reviews WHERE doctor_id=?').get(did).c;
-  const earnings = db.prepare("SELECT COALESCE(SUM(doctor_share),0) s FROM orders WHERE doctor_id=? AND status IN ('已支付','已结算')").get(did).s;
-  res.json({ doctor: d, stats: { pendingConsults, patients, reviews, earnings } });
+  const points = db.prepare("SELECT COALESCE(SUM(workload_points),0) s FROM doctor_service_logs WHERE doctor_id=?").get(did).s;
+  res.json({ doctor: d, stats: { pendingConsults, patients, reviews, points } });
 });
 
-// 待接诊/连通请求（医患同屏入口）
+// 患者提交的连通请求（医患同屏入口）
 router.get('/consults', (req, res) => {
   const did = req.user.id;
   const rows = db.prepare(`
@@ -30,7 +30,7 @@ router.get('/consults', (req, res) => {
   res.json(rows);
 });
 
-// 患者的 AI 分析结果（与患者完全一致 —— 医患同屏核心）
+// 患者提交的 AI 分析结果（作为患者提交材料查看——不自动进入病历）
 router.get('/consults/:id', (req, res) => {
   const did = req.user.id;
   const c = db.prepare('SELECT * FROM consults WHERE id=? AND doctor_id=?').get(req.params.id, did);
@@ -39,7 +39,6 @@ router.get('/consults/:id', (req, res) => {
   p.age = new Date().getFullYear() - new Date(p.birth_date).getFullYear();
   const analysis = c.analysis_id ? db.prepare('SELECT * FROM analyses WHERE id=?').get(c.analysis_id) : null;
   if (analysis) analysis.content = JSON.parse(analysis.content);
-  // 医生可查看患者授权范围内的原始数据摘要
   const conditions = db.prepare('SELECT * FROM conditions WHERE patient_id=?').all(c.patient_id);
   const meds = db.prepare("SELECT * FROM medications WHERE patient_id=? AND status='服用中'").all(c.patient_id);
   const abnormal = db.prepare("SELECT * FROM lab_reports WHERE patient_id=? AND flag!='N' ORDER BY report_date DESC").all(c.patient_id);
@@ -47,7 +46,6 @@ router.get('/consults/:id', (req, res) => {
   res.json({ consult: c, patient: p, analysis, conditions, meds, abnormal, reviews });
 });
 
-// 接诊
 router.post('/consults/:id/accept', (req, res) => {
   const did = req.user.id;
   const c = db.prepare('SELECT * FROM consults WHERE id=? AND doctor_id=?').get(req.params.id, did);
@@ -56,25 +54,33 @@ router.post('/consults/:id/accept', (req, res) => {
   res.json({ ok: true });
 });
 
-// 医生解读把关：提交专业意见，触发费用分成结算
+// 解读把关：提交专业意见 → 记录服务绩效（机构统一结算，非个人返佣、不与金额挂钩）
 router.post('/consults/:id/review', (req, res) => {
   const did = req.user.id;
   const { comment, advice } = req.body;
   const c = db.prepare('SELECT * FROM consults WHERE id=? AND doctor_id=?').get(req.params.id, did);
   if (!c) return res.status(404).json({ error: '未找到' });
-  db.prepare('INSERT INTO reviews (consult_id,analysis_id,doctor_id,patient_id,comment,advice) VALUES (?,?,?,?,?,?)')
+  const doc = db.prepare('SELECT hospital FROM doctors WHERE id=?').get(did);
+  db.prepare('INSERT INTO reviews (consult_id,analysis_id,doctor_id,patient_id,comment,advice,cited_into_record) VALUES (?,?,?,?,?,?,0)')
     .run(c.id, c.analysis_id, did, c.patient_id, comment || '', advice || '');
   db.prepare("UPDATE consults SET status='已解读' WHERE id=?").run(c.id);
-
-  // 结算：为此次解读生成一笔已支付订单并按比例分成给医生
-  const SHARE = 0.5; // 医生分成比例（示意，实际由主管部门指导确定）
-  const price = 39; // 单次解读服务价（示意）
-  db.prepare('INSERT INTO orders (patient_id,product,amount,doctor_id,doctor_share,platform_share,status) VALUES (?,?,?,?,?,?,?)')
-    .run(c.patient_id, '单次解读', price, did, +(price * SHARE).toFixed(2), +(price * (1 - SHARE)).toFixed(2), '已支付');
-  res.json({ ok: true, settled: { amount: price, doctor_share: +(price * SHARE).toFixed(2), share_ratio: SHARE } });
+  // 机构统一结算的服务绩效：记 1 个服务量点，由机构按绩效/劳务规则结算
+  db.prepare('INSERT INTO doctor_service_logs (doctor_id,patient_id,consult_id,service_type,workload_points,settle_org,status) VALUES (?,?,?,?,?,?,?)')
+    .run(did, c.patient_id, c.id, '报告解读把关', 1, doc?.hospital || '所属医疗机构', '待机构结算');
+  res.json({ ok: true, service: { type: '报告解读把关', points: 1, settle: '由机构统一结算为绩效/劳务补偿，与金额无关' } });
 });
 
-// 我的患者
+// 医生手动确认将 AI 内容引用进正式医疗意见（不自动进病历——整合版 A4/第七章）
+router.post('/consults/:id/cite', (req, res) => {
+  const did = req.user.id;
+  const c = db.prepare('SELECT * FROM consults WHERE id=? AND doctor_id=?').get(req.params.id, did);
+  if (!c) return res.status(404).json({ error: '未找到' });
+  const r = db.prepare('SELECT * FROM reviews WHERE consult_id=? ORDER BY id DESC LIMIT 1').get(c.id);
+  if (!r) return res.status(400).json({ error: '请先提交解读意见再引用' });
+  db.prepare('UPDATE reviews SET cited_into_record=1 WHERE id=?').run(r.id);
+  res.json({ ok: true, message: '已手动确认引用（保留 AI 来源、版本与确认记录）' });
+});
+
 router.get('/patients', (req, res) => {
   const did = req.user.id;
   const rows = db.prepare(`
@@ -84,16 +90,15 @@ router.get('/patients', (req, res) => {
   res.json(rows);
 });
 
-// 收入与分成明细
-router.get('/earnings', (req, res) => {
+// 服务绩效（取代"分成明细"）：机构统一结算，按服务量点数，不与金额挂钩
+router.get('/performance', (req, res) => {
   const did = req.user.id;
-  const orders = db.prepare(`
-    SELECT o.*, p.name patient_name FROM orders o JOIN patients p ON p.id=o.patient_id
-    WHERE o.doctor_id=? ORDER BY o.id DESC`).all(did);
-  const total = orders.reduce((s, o) => s + (o.doctor_share || 0), 0);
-  const settled = orders.filter(o => o.status === '已结算').reduce((s, o) => s + o.doctor_share, 0);
-  const pending = total - settled;
-  res.json({ total: +total.toFixed(2), settled: +settled.toFixed(2), pending: +pending.toFixed(2), orders });
+  const logs = db.prepare(`
+    SELECT s.*, p.name patient_name FROM doctor_service_logs s JOIN patients p ON p.id=s.patient_id
+    WHERE s.doctor_id=? ORDER BY s.id DESC`).all(did);
+  const totalPoints = logs.reduce((a, l) => a + (l.workload_points || 0), 0);
+  const pendingPoints = logs.filter(l => l.status === '待机构结算').reduce((a, l) => a + l.workload_points, 0);
+  res.json({ totalPoints, pendingPoints, logs, note: '收益由医疗机构按绩效/劳务规则统一结算，与药品、检查、处方、转诊、复诊量及患者付费金额均无关。' });
 });
 
 module.exports = router;

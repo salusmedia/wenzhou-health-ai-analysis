@@ -2,7 +2,7 @@
 const path = require('path');
 const express = require('express');
 const db = require('./src/db');
-const { seed } = require('./src/seed');
+const { seed, backfillAuthGrants } = require('./src/seed');
 const glm = require('./src/glm');
 
 const app = express();
@@ -16,6 +16,7 @@ app.use('/api/ai', require('./src/routes/ai'));
 app.use('/api/connect', require('./src/routes/connect'));
 app.use('/api/doctor', require('./src/routes/doctor'));
 app.use('/api/billing', require('./src/routes/billing'));
+app.use('/api/audit', require('./src/routes/audit'));
 
 // 系统信息
 app.get('/api/health', (req, res) => {
@@ -36,8 +37,9 @@ app.get('*', (req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 (async () => {
-  await db.init();     // 初始化 sql.js（加载 WASM）
-  seed();              // 首次启动播种演示数据
+  await db.init();       // 初始化 sql.js（加载 WASM）
+  seed();                // 首次启动播种演示数据
+  backfillAuthGrants();  // 四维授权初值（幂等，兼容旧库）
   app.listen(PORT, () => {
     console.log(`\n健康温州·个人医疗健康数据分析服务已启动`);
     console.log(`  患者端(健康温州小程序):  http://localhost:${PORT}/`);

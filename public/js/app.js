@@ -192,7 +192,7 @@ async function viewAssistant(){
   ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}};
   const hist=await api('/api/ai/chat/history?session_id=default');
   chatHistory=hist;
-  if(!hist.length){pushMsg('ai','您好，我是您的 AI 全科健康助理。我可以帮您解读检验指标、梳理病情、准备就诊问题。试试点下方的快捷问题吧～',[]);}
+  if(!hist.length){pushMsg('ai','您好，我是您的 AI 健康数据解读助手。我可以帮您解读检验指标、梳理病情、准备就诊问题；涉及用药/诊断/复诊等会引导您向医生确认。试试下方的快捷问题吧～',[]);}
   else hist.forEach(m=>pushMsg(m.role==='user'?'me':'ai',m.content,m.sources));
   scrollChat();
 }
@@ -219,35 +219,38 @@ async function sendChat(){
 
 // ================= 健康报告 =================
 async function viewReports(){
-  setTitle('健康报告与解读');
+  setTitle('AI 诊前准备与数据解读');
   const s=el('screen');
   s.innerHTML=`
     <div class="card">
-      <h3><span class="bar"></span>AI 智能分析</h3>
+      <h3><span class="bar"></span>AI 数据解读（只做解读与诊前准备，不做诊疗）</h3>
       <div class="grid4" style="grid-template-columns:1fr 1fr;gap:10px">
-        <div class="entry" onclick="genAnalysis('report')"><div class="ico">📊</div><div class="lb">个人健康报告</div></div>
+        <div class="entry" onclick="genAnalysis('report')"><div class="ico">📊</div><div class="lb">健康数据解读</div></div>
         <div class="entry" onclick="genAnalysis('prep')"><div class="ico">📝</div><div class="lb">诊前准备 <span class="badge-star">★</span></div></div>
-        <div class="entry" onclick="genAnalysis('second_opinion')"><div class="ico">🔍</div><div class="lb">AI 第二意见 <span class="badge-star">★</span></div></div>
+        <div class="entry" onclick="genAnalysis('second_opinion')"><div class="ico">🔍</div><div class="lb">参考视角 <span class="ls">医生确认前</span></div></div>
         <div class="entry" onclick="viewReports()"><div class="ico">🕘</div><div class="lb">历史记录</div></div>
       </div>
     </div>
     <div class="card" id="historyCard"><h3><span class="bar"></span>我的分析记录</h3><div id="analysisList">${loading('加载…')}</div></div>
-    <div class="notice">⚕️ 所有 AI 分析均为健康科普与辅助参考，不构成诊断、治疗或用药建议。请以执业医师面诊意见为准。</div>
+    <div class="notice">⚕️ 所有 AI 分析仅为健康科普与辅助参考，不构成诊断、治疗或用药建议。涉及用药、复诊、治疗选择时只生成"需向医生确认的问题"。请以执业医师面诊意见为准。</div>
   `;
   const list=await api('/api/ai/analyses');
-  el('analysisList').innerHTML=list.length?list.map(a=>`<div class="li" onclick="openAnalysis(${a.id})"><div><div class="lt">${esc(a.title)}</div><div class="ls">${a.created_at} · ${esc(a.model)}</div></div><div style="text-align:right">${a.score?`<span class="chip green">${a.score}分</span>`:''}${a.shared_to_doctor?'<span class="chip">已同屏</span>':''}<div class="ls">查看 ›</div></div></div>`).join(''):'<div class="muted">还没有分析记录，点击上方生成第一份报告。</div>';
+  el('analysisList').innerHTML=list.length?list.map(a=>`<div class="li" onclick="openAnalysis(${a.id})"><div><div class="lt">${esc(a.title)}</div><div class="ls">${a.created_at} · ${esc(a.model)}</div></div><div style="text-align:right">${a.score?`<span class="chip green">${a.score}分</span>`:''}${a.shared_to_doctor?'<span class="chip">已提交医生</span>':''}<div class="ls">查看 ›</div></div></div>`).join(''):'<div class="muted">还没有分析记录，点击上方生成第一份报告。</div>';
 }
 
 async function genAnalysis(type){
-  const names={report:'个人健康报告',prep:'诊前准备清单',second_opinion:'AI 第二意见'};
+  const names={report:'健康数据解读报告',prep:'诊前准备清单',second_opinion:'参考视角（医生确认前）'};
   pushView(viewReports);setTitle(names[type],true);
   const s=el('screen');
-  s.innerHTML=loading(`AI 正在整合您的全市诊疗数据，生成${names[type]}…`);
+  s.innerHTML=loading(`AI 正在基于您授权的数据，生成${names[type]}…`);
   try{
     const ep={report:'/api/ai/report',prep:'/api/ai/prep',second_opinion:'/api/ai/second-opinion'}[type];
     const r=await api(ep,{method:'POST'});
     renderAnalysis(r.data,r.narrative,r.model,r.id);
-  }catch(e){s.innerHTML=`<div class="empty"><div class="e">⚠️</div>${e.message}</div>`;}
+  }catch(e){
+    const hint=e.message&&e.message.includes('未授权用途')?`${esc(e.message)}<br><button class="btn" style="margin-top:14px" onclick="openAuth()">前往授权中心</button>`:esc(e.message);
+    s.innerHTML=`<div class="empty"><div class="e">⚠️</div>${hint}</div>`;
+  }
 }
 async function openAnalysis(id){
   pushView(viewReports);setTitle('分析详情',true);
@@ -299,25 +302,65 @@ function renderAnalysis(data,narrative,model,id){
     </div>
     <div class="card"><h3><span class="bar"></span>智能提问清单 <span class="badge-star">★ 带进诊室</span></h3>${data.questions.map((q,i)=>`<div class="q-item"><div class="num">${i+1}</div><div>${esc(q)}</div></div>`).join('')}</div>`;
   }
+  html+=templateBlock(data,model,id);
   html+=`<div class="notice green">${esc(data.safety||'仅供参考，请遵医嘱。')}</div>
     <div class="btn-row" style="margin:14px 0">
-      <button class="btn green" onclick="shareToDoctor(${id})">🔗 一键连通医生（同屏）</button>
-      <button class="btn ghost" onclick="toast('已保存，可在“历史记录”查看')">💾 保存</button>
+      <button class="btn green" onclick="shareToDoctor(${id})">📤 提交给医生确认（同屏）</button>
+      <button class="btn ghost" onclick="deleteReport(${id})">🗑️ 删除报告</button>
     </div>`;
   s.innerHTML=html;
 }
 
+// 统一输出模板：数据来源 / 生成时间 / 适用边界 / 下一步（整合版 E1）+ 数据完整性 + 溯源
+function templateBlock(data,model,id){
+  const t=data.template||{};
+  const dq=data.dataQuality||{};
+  const low=dq.low?`<div class="notice" style="margin-top:8px">⚠️ 本次数据完整度约 ${Math.round((dq.completeness||0)*100)}%，${esc((dq.missing||[]).join('；'))}。结论可能不完整，仅供参考。</div>`:'';
+  const src=(data.sources||[]).slice(0,12).map(sr=>`<div class="ls">· [${esc(sr.id)}] ${esc(sr.summary)}</div>`).join('');
+  const more=(data.sources||[]).length>12?`<div class="ls">…共 ${data.sources.length} 条来源</div>`:'';
+  return `<div class="card" style="background:#f8fafc">
+    <h3><span class="bar"></span>数据来源与边界说明</h3>
+    <div class="kv"><span class="k">生成时间</span><span>${esc(t.generatedAt||'-')}</span></div>
+    <div class="kv"><span class="k">分析引擎</span><span>${esc(model||'')}</span></div>
+    <div class="kv"><span class="k">纳入数据</span><span style="max-width:65%;text-align:right">${(data.usedTypes||[]).join('、')||'-'}</span></div>
+    <div style="margin-top:8px;font-size:13px"><b>适用边界：</b>${esc(t.boundary||'仅解读与诊前准备，不做诊疗决策。')}</div>
+    <div style="margin-top:4px;font-size:13px"><b>下一步：</b>${esc(t.nextStep||'如涉及诊疗，请提交医生确认或就诊。')}</div>
+    ${low}
+    <details style="margin-top:8px"><summary class="ls" style="cursor:pointer">📎 展开数据来源（可溯源）</summary>${src}${more}</details>
+    <button class="btn ghost sm" style="margin-top:10px" onclick="viewTrace(${id})">🔍 查看全链路溯源（模型/提示词/知识库版本）</button>
+  </div>`;
+}
+async function deleteReport(id){
+  if(!confirm('确定删除这份报告？删除后将同时终止已连通医生对该报告的查看。'))return;
+  try{await api('/api/ai/analyses/'+id,{method:'DELETE'});toast('已删除报告并终止医生查看');switchTab('reports');}
+  catch(e){toast(e.message);}
+}
+async function viewTrace(id){
+  try{
+    const t=await api('/api/audit/trace/'+id);
+    const hits=(t.guardrail_hits||[]).length?t.guardrail_hits.map(h=>`${h.type||h.category||'命中'}`).join('、'):'无';
+    sheet(`<h3>🔍 全链路溯源</h3>
+      <div class="kv"><span class="k">模型版本</span><span>${esc(t.versions.model||'-')}</span></div>
+      <div class="kv"><span class="k">提示词版本</span><span>${esc(t.versions.prompt||'-')}</span></div>
+      <div class="kv"><span class="k">知识库版本</span><span>${esc(t.versions.kb||'-')}</span></div>
+      <div class="kv"><span class="k">检索片段</span><span style="max-width:60%;text-align:right">${(t.retrieved_ids||[]).join('、')||'-'}</span></div>
+      <div class="kv"><span class="k">护栏命中</span><span>${esc(hits)}</span></div>
+      <div style="margin-top:10px"><b class="ls">最近授权/调用</b>${(t.recent_authorizations||[]).map(a=>`<div class="ls">· ${a.created_at} ${esc(a.action)}（${esc(a.data_type)}）</div>`).join('')}</div>
+      <button class="btn" style="margin-top:14px" onclick="closeSheet()">关闭</button>`);
+  }catch(e){toast(e.message);}
+}
+
 async function shareToDoctor(analysisId){
   const docs=await api('/api/connect/my-doctors');
-  sheet(`<h3>选择要连通的医生</h3><div class="muted" style="margin-bottom:12px">您的 AI 分析结果将同步呈现在医生的 HI 医生端（医患同屏），医生可解读把关。</div>
+  sheet(`<h3>提交给医生确认</h3><div class="muted" style="margin-bottom:12px">您的 AI 分析将作为"患者提交材料"呈现在医生端（医患同屏），供医生解读把关。它不会自动写入病历，医生引用需手动确认。</div>
     ${docs.map(d=>`<div class="li" onclick="doConnect(${d.id},${analysisId})"><div><div class="lt">${esc(d.name)} · ${esc(d.title)}</div><div class="ls">${esc(d.hospital)} · ${esc(d.dept)} · ${esc(d.relation)}</div></div><span class="chip">连通 ›</span></div>`).join('')}`);
 }
 async function doConnect(doctorId,analysisId){
   closeSheet();
-  const note=prompt('给医生的留言（选填）：','请帮我看看这份 AI 分析，谢谢陈主任')||'';
+  const note=prompt('给医生的留言（选填）：','请帮我看看这份 AI 分析，谢谢')||'';
   try{
     const r=await api('/api/connect/connect',{method:'POST',body:{doctor_id:doctorId,analysis_id:analysisId,note}});
-    toast(`已连通 ${r.doctor.name}，结果已推送至医生端`);
+    toast(`已提交给 ${r.doctor.name}（作为患者提交材料）`);
   }catch(e){toast(e.message);}
 }
 
@@ -330,10 +373,10 @@ async function viewMine(){
       <div class="row"><div><div class="name">${esc(PATIENT.name)}</div><div class="sub">健康温州 · 实名认证用户</div></div><div class="avatar">${esc(PATIENT.avatar||PATIENT.name[0])}</div></div>
     </div>
     <div class="card">
-      <div class="li" onclick="openAuth()"><div><div class="lt">🔐 数据授权管理</div><div class="ls">分类型授权 · 记录留存 · 随时撤回</div></div><span>›</span></div>
-      <div class="li" onclick="openMyDoctors()"><div><div class="lt">👨‍⚕️ 我的医生</div><div class="ls">签约/主治医生，一键连通</div></div><span>›</span></div>
-      <div class="li" onclick="openMyConsults()"><div><div class="lt">💬 医生解读记录</div><div class="ls">医患同屏与医生把关意见</div></div><span>›</span></div>
-      <div class="li" onclick="openBilling()"><div><div class="lt">💳 服务与会员</div><div class="ls">定价方案 · 我的订单</div></div><span>›</span></div>
+      <div class="li" onclick="openAuth()"><div><div class="lt">🔐 授权与隐私中心</div><div class="ls">四维授权（用途/类型/对象/期限）· 记录留存 · 随时撤回</div></div><span>›</span></div>
+      <div class="li" onclick="openMyDoctors()"><div><div class="lt">👨‍⚕️ 我的医生</div><div class="ls">签约/主治医生，提交材料给医生确认</div></div><span>›</span></div>
+      <div class="li" onclick="openMyConsults()"><div><div class="lt">💬 医生确认记录</div><div class="ls">医患同屏与医生把关意见</div></div><span>›</span></div>
+      <div class="li" onclick="openBilling()"><div><div class="lt">💳 服务与收费</div><div class="ls">基础免费 · 增值自愿 · 公益减免</div></div><span>›</span></div>
     </div>
     <div class="card">
       <div class="li" onclick="openAgreement()"><div class="lt">📃 用户服务协议 / 隐私政策</div><span>›</span></div>
@@ -345,14 +388,24 @@ async function viewMine(){
   `;
 }
 
+let AUTH_PERIODS=[];
 async function openAuth(){
-  pushView(viewMine);setTitle('数据授权管理',true);
+  pushView(viewMine);setTitle('授权与隐私中心',true);
   const s=el('screen');s.innerHTML=loading();
-  const list=await api('/api/authorization');
+  const d=await api('/api/authorization');
+  AUTH_PERIODS=d.periods||[];
+  const row=(dim,t,extra='')=>`<div class="li"><div><div class="lt">${esc(t.label)}${t.locked?' <span class="ls">(必选)</span>':''}</div><div class="ls">${t.expires_at?'有效期至 '+t.expires_at:(t.updated_at?'更新于 '+t.updated_at:'')}${extra}</div></div><div class="switch ${t.enabled?'on':''}${t.locked?' locked':''}" onclick="${t.locked?'':`grantAuth('${dim}','${t.key}',this)`}"></div></div>`;
   s.innerHTML=`
-    <div class="notice blue">🔒 我的数据我做主。您可按类型逐项开启/关闭授权，所有操作留痕可追溯，可随时撤回。关闭后 AI 将不再调用相应数据。</div>
-    <div class="card"><h3><span class="bar"></span>分类型授权开关</h3>
-      ${list.map(t=>`<div class="li"><div><div class="lt">${esc(t.label)}</div><div class="ls">${t.updated_at?'更新于 '+t.updated_at:'未设置'}</div></div><div class="switch ${t.enabled?'on':''}" onclick="toggleAuth('${t.key}',this)"></div></div>`).join('')}
+    <div class="notice blue">🔒 我的数据我做主。授权分「用途 / 数据类型 / 访问对象 / 期限」四个维度分别管理，所有操作留痕可追溯，可随时撤回。不同用途需分别授权。</div>
+    <div class="card"><h3><span class="bar"></span>① 用途授权（按用途分别授权）</h3>
+      ${d.purpose.map(t=>row('purpose',t,t.key==='family'||t.key==='export'?' · 后续开放':'')).join('')}
+      <div class="ls" style="margin-top:6px">开启用途时可设期限：<select id="periodSel" style="font-size:12px">${AUTH_PERIODS.map(p=>`<option value="${p.key}"${p.key==='long'?' selected':''}>${p.label}</option>`).join('')}</select></div>
+    </div>
+    <div class="card"><h3><span class="bar"></span>② 数据类型授权（最小必要）</h3>
+      ${d.type.map(t=>row('type',t)).join('')}
+    </div>
+    <div class="card"><h3><span class="bar"></span>③ 访问对象授权</h3>
+      ${d.object.map(t=>row('object',t)).join('')}
     </div>
     <button class="btn orange" onclick="revokeAll()">⛔ 一键撤回全部授权</button>
     <div class="card" style="margin-top:14px"><h3><span class="bar"></span>授权记录（可追溯）</h3><div id="authLogs">${loading('加载…')}</div></div>
@@ -363,10 +416,11 @@ async function loadAuthLogs(){
   const logs=await api('/api/authorization/logs');
   el('authLogs').innerHTML=logs.map(l=>`<div class="li"><div><div class="lt" style="font-size:13px">${esc(l.action)} · ${esc(l.data_type)}</div><div class="ls">${l.created_at} · IP ${esc(l.ip||'-')}</div></div></div>`).join('');
 }
-async function toggleAuth(key,elm){
+async function grantAuth(dimension,key,elm){
   const enabled=!elm.classList.contains('on');
-  try{await api('/api/authorization/toggle',{method:'POST',body:{data_type:key,enabled}});
-    elm.classList.toggle('on',enabled);toast(enabled?'已开启授权':'已关闭授权');loadAuthLogs();
+  const period=(dimension==='purpose'&&enabled&&el('periodSel'))?el('periodSel').value:undefined;
+  try{await api('/api/authorization/grant',{method:'POST',body:{dimension,item_key:key,enabled,period}});
+    elm.classList.toggle('on',enabled);toast(enabled?'已开启授权':'已关闭授权');openAuth();
   }catch(e){toast(e.message);}
 }
 async function revokeAll(){
@@ -395,34 +449,44 @@ async function openMyConsults(){
 async function openBilling(){
   pushView(viewMine);setTitle('服务与会员',true);
   const s=el('screen');s.innerHTML=loading();
-  const {products,note}=await api('/api/billing/products');
+  const {free,products,charity,settlement,note}=await api('/api/billing/products');
   const orders=await api('/api/billing/my-orders');
-  s.innerHTML=`<div class="card"><h3><span class="bar"></span>定价方案（示意）</h3>
-    ${products.map(p=>`<div class="li"><div><div class="lt">${esc(p.name)}</div><div class="ls">${esc(p.desc)} · 医生分成 ${p.doctor_share_label}</div></div><div style="text-align:right"><div style="font-weight:700;color:var(--blue)">¥${p.price}</div><button class="btn sm" onclick="buy('${p.key}')">订阅</button></div></div>`).join('')}
+  s.innerHTML=`
+  <div class="card"><h3><span class="bar"></span>基础公共服务（永久免费）</h3>
+    ${free.map(f=>`<div class="li"><div><div class="lt">${esc(f.name)}</div><div class="ls">${esc(f.desc)}</div></div><span class="chip green">免费</span></div>`).join('')}
+  </div>
+  <div class="card"><h3><span class="bar"></span>增值服务（自愿付费 · 分阶段开放）</h3>
+    ${products.map(p=>`<div class="li"><div style="flex:1"><div class="lt">${esc(p.name)} <span class="chip">${p.phase}</span></div><div class="ls">${esc(p.desc)}</div></div><div style="text-align:right"><div style="font-weight:700;color:var(--blue)">¥${p.price}</div>${p.locked?'<span class="chip gray">未开放</span>':`<button class="btn sm" onclick="buy('${p.key}')">购买</button>`}</div></div>`).join('')}
     <div class="muted" style="margin-top:10px">${esc(note)}</div>
   </div>
-  <div class="card"><h3><span class="bar"></span>我的订单</h3>${orders.length?orders.map(o=>`<div class="li"><div><div class="lt">${esc(o.product)}</div><div class="ls">${o.created_at}${o.doctor_share?' · 含医生分成 ¥'+o.doctor_share:''}</div></div><div style="text-align:right"><div style="font-weight:600">¥${o.amount}</div><span class="chip green">${o.status}</span></div></div>`).join(''):'<div class="muted">暂无订单</div>'}</div>`;
+  <div class="card"><h3><span class="bar"></span>公益减免</h3>
+    <div class="ls">${esc(charity)}</div>
+    <button class="btn ghost sm" style="margin-top:8px" onclick="applyCharity()">申请公益减免</button>
+  </div>
+  <div class="notice">🏥 ${esc(settlement)}</div>
+  <div class="card"><h3><span class="bar"></span>我的订单</h3>${orders.length?orders.map(o=>`<div class="li"><div><div class="lt">${esc(o.product)}</div><div class="ls">${o.created_at}</div></div><div style="text-align:right"><div style="font-weight:600">¥${o.amount}</div><span class="chip green">${o.status}</span></div></div>`).join(''):'<div class="muted">暂无订单</div>'}</div>`;
 }
 async function buy(product){
-  const docs=await api('/api/connect/my-doctors');
-  const did=docs[0]?.id;
-  try{await api('/api/billing/order',{method:'POST',body:{product,doctor_id:did}});toast('订阅成功（演示支付）');openBilling();}catch(e){toast(e.message);}
+  try{await api('/api/billing/order',{method:'POST',body:{product}});toast('购买成功（演示支付）');openBilling();}catch(e){toast(e.message);}
+}
+async function applyCharity(){
+  try{const r=await api('/api/billing/charity-apply',{method:'POST'});toast(r.message);}catch(e){toast(e.message);}
 }
 function openAgreement(){sheet(`<h3>用户服务协议 / 隐私政策（摘要）</h3>
   <div style="font-size:13px;line-height:1.8;color:#334155">
-  <p><b>1. 服务性质</b>：本服务为面向个人的付费增值服务，提供基于您授权医疗数据的 AI 健康解读，不替代医生诊断。</p>
-  <p><b>2. 数据来源与授权</b>：数据来自温州医疗数据高铁，仅在您明示同意并授权的范围内调用，遵循最小必要原则。</p>
-  <p><b>3. 分类型授权</b>：您可按门诊、住院、检验、影像、用药等类型逐项授权，随时开启/关闭/撤回。</p>
+  <p><b>1. 服务性质</b>：基础健康档案永久免费；AI 数据解读等增值服务自愿付费。本服务提供基于您授权数据的 AI 健康解读，不替代医生诊断。</p>
+  <p><b>2. 数据来源与授权</b>：数据来自温州医疗数据高铁，仅在您明示同意并授权的范围内调用，原始数据不出域，遵循最小必要原则，默认不用于模型训练。</p>
+  <p><b>3. 四维授权</b>：您可按用途、数据类型、访问对象、期限分别授权，随时开启/关闭/撤回。</p>
   <p><b>4. 数据安全</b>：全链路加密传输、敏感数据加密存储、访问控制与审计留痕，遵守《个人信息保护法》《数据安全法》。</p>
   <p><b>5. 撤回权</b>：您可随时撤回授权，撤回后即停止相应数据调用。</p>
   </div><button class="btn" style="margin-top:14px" onclick="closeSheet()">我已阅读并知晓</button>`);}
 function openDisclaimer(){sheet(`<h3>⚕️ 医学免责与安全边界</h3>
   <div class="notice" style="margin-bottom:12px">本服务提供的所有 AI 分析、健康解读与第二意见，均为健康科普与辅助参考，<b>不构成诊断、治疗或用药建议</b>。</div>
   <div style="font-size:13px;line-height:1.8;color:#334155">
-  <p>· 任何诊疗决策请以执业医师面诊意见为准。</p>
-  <p>· 如有紧急症状，请立即就医或拨打急救电话 120。</p>
-  <p>· AI 分析均标注数据来源，并对高风险问题主动提示就医。</p>
-  <p>· 第二意见 = 参考视角，不 = 诊断结论。最终诊疗决策由医生和患者共同做出。</p>
+  <p>· 本服务只做数据解读与诊前准备，不做诊断、用药与复诊决策。</p>
+  <p>· 任何诊疗决策请以执业医师面诊意见为准；如有紧急症状请立即就医或拨打 120。</p>
+  <p>· AI 分析均标注数据来源，涉及用药、复诊、治疗选择时只生成"需向医生确认的问题"。</p>
+  <p>· "参考视角"是医生确认前的辅助参考，不是诊断结论。最终诊疗决策由医生和患者共同做出。</p>
   </div><button class="btn" style="margin-top:14px" onclick="closeSheet()">我已知晓</button>`);}
 
 // ---------- 启动 ----------

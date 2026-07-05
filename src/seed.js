@@ -11,6 +11,44 @@ const DATA_TYPES = [
   { key: 'wearable', label: '可穿戴设备数据' }
 ];
 
+// ===== 四维授权模型（整合版第五章）=====
+// 用途维：不同用途分别授权，不得用生成报告的授权自动覆盖医生查看或营销
+const PURPOSES = [
+  { key: 'interpret', label: '数据解读', default: 1 },
+  { key: 'pre_visit', label: '诊前摘要', default: 1 },
+  { key: 'monitor', label: '持续提醒', default: 1 },
+  { key: 'doctor_confirm', label: '医生确认', default: 1 },
+  { key: 'family', label: '家庭代管', default: 0 },   // 一期后置
+  { key: 'export', label: '导出分享', default: 0 }
+];
+// 访问对象维：医生与家庭成员不得默认继承全量访问权
+const OBJECTS = [
+  { key: 'self', label: '本人', default: 1, locked: 1 },
+  { key: 'doctor', label: '指定医生', default: 1 },
+  { key: 'family', label: '指定家庭成员', default: 0 },
+  { key: 'qc', label: '平台客服 / 质控', default: 1 }
+];
+// 期限维：单次 / 7天 / 30天 / 90天 / 长期（长期需定期提醒）
+const PERIODS = [
+  { key: 'once', label: '单次', days: 0 },
+  { key: 'd7', label: '7 天', days: 7 },
+  { key: 'd30', label: '30 天', days: 30 },
+  { key: 'd90', label: '90 天', days: 90 },
+  { key: 'long', label: '长期持续', days: 0 }
+];
+
+// 为患者建立四维授权初值（幂等：INSERT OR IGNORE）——对已上线旧库亦生效
+function backfillAuthGrants() {
+  const patients = db.prepare('SELECT id FROM patients').all();
+  const ins = db.prepare(`INSERT OR IGNORE INTO auth_grants (patient_id,dimension,item_key,item_label,enabled,expires_at)
+    VALUES (?,?,?,?,?,?)`);
+  patients.forEach(({ id }) => {
+    DATA_TYPES.forEach(t => ins.run(id, 'type', t.key, t.label, 1, null));
+    PURPOSES.forEach(p => ins.run(id, 'purpose', p.key, p.label, p.default, null));
+    OBJECTS.forEach(o => ins.run(id, 'object', o.key, o.label, o.default, null));
+  });
+}
+
 function seed() {
   const count = db.prepare('SELECT COUNT(*) c FROM patients').get().c;
   if (count > 0) return; // 已有数据，不重复播种
@@ -137,4 +175,4 @@ function seed() {
   tx();
 }
 
-module.exports = { seed, DATA_TYPES };
+module.exports = { seed, backfillAuthGrants, DATA_TYPES, PURPOSES, OBJECTS, PERIODS };

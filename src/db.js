@@ -55,7 +55,43 @@ CREATE TABLE IF NOT EXISTS reviews (
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER, product TEXT, amount REAL, doctor_id INTEGER,
   doctor_share REAL, platform_share REAL, status TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
+
+-- 四维授权（用途/数据类型/访问对象/期限）——整合版第五章授权模型
+CREATE TABLE IF NOT EXISTS auth_grants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER, dimension TEXT, item_key TEXT, item_label TEXT,
+  enabled INTEGER DEFAULT 1, expires_at TEXT, updated_at TEXT DEFAULT (datetime('now','localtime')),
+  UNIQUE(patient_id, dimension, item_key));
+
+-- AI 全链路溯源留痕（三版本 + 护栏命中 + 字段/检索）——需求书 4.9 三版本管理
+CREATE TABLE IF NOT EXISTS ai_traces (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER, analysis_id INTEGER, task_type TEXT,
+  model_version TEXT, prompt_version TEXT, kb_version TEXT,
+  field_types TEXT, retrieved_ids TEXT, guardrail_hits TEXT, source TEXT,
+  created_at TEXT DEFAULT (datetime('now','localtime')));
+
+-- 机构统一结算的医生服务绩效（取代个人返佣）——整合版 7.1
+CREATE TABLE IF NOT EXISTS doctor_service_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id INTEGER, patient_id INTEGER, consult_id INTEGER,
+  service_type TEXT, workload_points INTEGER DEFAULT 1, settle_org TEXT, status TEXT DEFAULT '待机构结算',
+  created_at TEXT DEFAULT (datetime('now','localtime')));
+
+-- 系统级开关：一键暂停 / 版本召回
+CREATE TABLE IF NOT EXISTS system_flags (
+  key TEXT PRIMARY KEY, value TEXT, updated_at TEXT DEFAULT (datetime('now','localtime')));
 `;
+
+// 针对已存在的旧库做增量迁移（sql.js 支持 ADD COLUMN；重复执行以 try/catch 吞掉）
+function migrate() {
+  const alters = [
+    "ALTER TABLE analyses ADD COLUMN prompt_version TEXT",
+    "ALTER TABLE analyses ADD COLUMN kb_version TEXT",
+    "ALTER TABLE analyses ADD COLUMN recalled INTEGER DEFAULT 0",
+    "ALTER TABLE reviews ADD COLUMN cited_into_record INTEGER DEFAULT 0"
+  ];
+  for (const sql of alters) {
+    try { database.run(sql); } catch (_) { /* 列已存在，忽略 */ }
+  }
+}
 
 let SQL = null;      // sql.js 模块
 let database = null; // Database 实例
@@ -128,6 +164,7 @@ const db = {
       database = new SQL.Database();
     }
     database.run(SCHEMA);
+    migrate();
     persist();
     return db;
   }
