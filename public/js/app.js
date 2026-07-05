@@ -71,6 +71,15 @@ async function viewRecords(){
       </div>
     </div>
 
+    <div class="card" style="padding:12px">
+      <div class="grid4" style="grid-template-columns:1fr 1fr;gap:10px">
+        <div class="entry" onclick="switchTab('records')"><div class="ico">🗂️</div><div class="lb">我的健康数据</div></div>
+        <div class="entry" onclick="switchTab('reports')"><div class="ico">📝</div><div class="lb">诊前准备</div></div>
+        <div class="entry" onclick="openMyConsults()"><div class="ico">🩺</div><div class="lb">医生确认</div></div>
+        <div class="entry" onclick="openAuth()"><div class="ico">🔐</div><div class="lb">授权管理</div></div>
+      </div>
+    </div>
+
     <div class="grid4" style="margin-bottom:14px">
       <div class="entry" onclick="openTimeline()"><div class="ico">🕒</div><div class="lb">就医时间轴</div></div>
       <div class="entry" onclick="openLabs()"><div class="ico">🧪</div><div class="lb">检验报告</div></div>
@@ -235,7 +244,7 @@ async function viewReports(){
     <div class="notice">⚕️ 所有 AI 分析仅为健康科普与辅助参考，不构成诊断、治疗或用药建议。涉及用药、复诊、治疗选择时只生成"需向医生确认的问题"。请以执业医师面诊意见为准。</div>
   `;
   const list=await api('/api/ai/analyses');
-  el('analysisList').innerHTML=list.length?list.map(a=>`<div class="li" onclick="openAnalysis(${a.id})"><div><div class="lt">${esc(a.title)}</div><div class="ls">${a.created_at} · ${esc(a.model)}</div></div><div style="text-align:right">${a.score?`<span class="chip green">${a.score}分</span>`:''}${a.shared_to_doctor?'<span class="chip">已提交医生</span>':''}<div class="ls">查看 ›</div></div></div>`).join(''):'<div class="muted">还没有分析记录，点击上方生成第一份报告。</div>';
+  el('analysisList').innerHTML=list.length?list.map(a=>`<div class="li" onclick="openAnalysis(${a.id})"><div><div class="lt">${esc(a.title)}</div><div class="ls">${a.created_at} · ${esc(a.model)}</div></div><div style="text-align:right">${a.score?`<span class="chip green">${a.score}分</span>`:''}${a.shared_to_doctor?'<span class="chip">已提交医生</span>':''}${a.recalled?'<span class="chip red">已召回</span>':''}<div class="ls">查看 ›</div></div></div>`).join(''):'<div class="muted">还没有分析记录，点击上方生成第一份报告。</div>';
 }
 
 async function genAnalysis(type){
@@ -256,13 +265,13 @@ async function openAnalysis(id){
   pushView(viewReports);setTitle('分析详情',true);
   const s=el('screen');s.innerHTML=loading();
   const a=await api('/api/ai/analyses/'+id);
-  renderAnalysis(a.content,a.content.narrative,a.model,a.id);
+  renderAnalysis(a.content,a.content.narrative,a.model,a.id,a.recalled);
 }
 
-function renderAnalysis(data,narrative,model,id){
+function renderAnalysis(data,narrative,model,id,recalled){
   const s=el('screen');
   if(!data){s.innerHTML='<div class="empty">暂无内容</div>';return;}
-  let html='';
+  let html=recalled?`<div class="notice" style="background:#fee2e2;color:#991b1b">⚠️ 本报告已被监管召回，结论可能存在质量问题，请勿据此决策。</div>`:'';
   const narrativeBlock=narrative?`<div class="card"><h3><span class="bar"></span>AI 综述（${esc(model)}）</h3><div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${esc(narrative)}</div></div>`:'';
 
   if(data.kind==='report'){

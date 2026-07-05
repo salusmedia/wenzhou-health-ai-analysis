@@ -105,6 +105,7 @@ async function openConsult(id){
   if(a){
     const c=a.content;
     analysisHtml=`<div class="samescreen">
+      ${a.recalled?'<div class="notice" style="background:#fee2e2;color:#991b1b;margin-bottom:8px">⚠️ 该 AI 报告已被监管召回，请勿引用其结论。</div>':''}
       <div class="same-screen-badge">🖥️ 医患同屏 · 患者提交的 AI 材料（不自动进入病历）</div>
       <h3 style="margin:8px 0 6px">${esc(a.title)}</h3>
       ${c.narrative?`<div style="font-size:13.5px;line-height:1.7;white-space:pre-wrap">${esc(c.narrative)}</div>`:''}

@@ -23,4 +23,12 @@ router.post('/doctor/login', (req, res) => {
   res.json({ token, doctor: { id: d.id, name: d.name, title: d.title, dept: d.dept, hospital: d.hospital, avatar: d.avatar } });
 });
 
+// 监管台：口令登录（演示口令，可用环境变量 ADMIN_KEY 覆盖）
+router.post('/admin/login', (req, res) => {
+  const key = (req.body.key || '').trim();
+  const ADMIN_KEY = process.env.ADMIN_KEY || 'admin123';
+  if (key !== ADMIN_KEY) return res.status(401).json({ error: '监管口令错误' });
+  res.json({ token: sign({ role: 'admin', id: 0, name: '监管员' }) });
+});
+
 module.exports = router;

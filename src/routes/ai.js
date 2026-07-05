@@ -3,12 +3,16 @@ const express = require('express');
 const db = require('../db');
 const { auth } = require('../middleware/auth');
 const aiEngine = require('../ai');
+const control = require('../control');
 const router = express.Router();
 
 router.use(auth('patient'));
 
+const PAUSE_MSG = 'AI 生成服务已被监管暂停，请稍后再试。基础健康档案查询不受影响。';
+
 // 统一执行一个 AI 任务并落库（含三版本留痕 + 溯源）
 async function runAndSave(req, res, type, title) {
+  if (control.isPaused()) return res.status(503).json({ error: PAUSE_MSG, paused: true });
   try {
     const r = await aiEngine.runAnalysis(req.user.id, type);
     const saved = db.prepare(`INSERT INTO analyses (patient_id,type,title,content,score,model,prompt_version,kb_version)
@@ -31,6 +35,7 @@ router.post('/second-opinion', (req, res) => runAndSave(req, res, 'second_opinio
 
 // AI 健康助理对话
 router.post('/chat', async (req, res) => {
+  if (control.isPaused()) return res.json({ content: PAUSE_MSG, sources: [], source: 'paused' });
   try {
     const { message, session_id } = req.body;
     if (!message) return res.status(400).json({ error: '消息不能为空' });

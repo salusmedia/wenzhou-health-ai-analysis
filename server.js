@@ -17,6 +17,7 @@ app.use('/api/connect', require('./src/routes/connect'));
 app.use('/api/doctor', require('./src/routes/doctor'));
 app.use('/api/billing', require('./src/routes/billing'));
 app.use('/api/audit', require('./src/routes/audit'));
+app.use('/api/admin', require('./src/routes/admin'));
 
 // 系统信息
 app.get('/api/health', (req, res) => {
@@ -28,6 +29,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // 医生端入口
 app.get('/doctor', (req, res) => res.sendFile(path.join(__dirname, 'public', 'doctor', 'index.html')));
+
+// 监管台入口
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
 
 // 患者端 SPA 兜底
 app.get('*', (req, res, next) => {
