@@ -1,5 +1,5 @@
 'use strict';
-// 患者端：一键连通医生、把 AI 分析结果分享给医生（医患同屏）
+// 患者端：把 AI 分析结果作为"患者提交材料"提交给医生（医患同屏，不自动进入病历）
 const express = require('express');
 const db = require('../db');
 const { auth } = require('../middleware/auth');
@@ -30,6 +30,18 @@ router.post('/connect', (req, res) => {
   const c = db.prepare('INSERT INTO consults (patient_id,doctor_id,analysis_id,status,patient_note) VALUES (?,?,?,?,?)')
     .run(pid, doctor_id, analysis_id || null, '待接诊', note || '');
   res.json({ ok: true, consult_id: c.lastInsertRowid, doctor: { name: d.name, dept: d.dept, hospital: d.hospital } });
+});
+
+// B5：终止某位医生对本人 AI 材料的查看
+router.post('/consults/:id/revoke', (req, res) => {
+  const pid = req.user.id;
+  const c = db.prepare('SELECT * FROM consults WHERE id=? AND patient_id=?').get(req.params.id, pid);
+  if (!c) return res.status(404).json({ error: '未找到' });
+  db.prepare("UPDATE consults SET status='已终止查看' WHERE id=?").run(c.id);
+  if (c.analysis_id) db.prepare('UPDATE analyses SET shared_to_doctor=0 WHERE id=?').run(c.analysis_id);
+  db.prepare('INSERT INTO authorization_logs (patient_id,action,data_type,ip) VALUES (?,?,?,?)')
+    .run(pid, '终止医生查看提交材料', '医患同屏', 'self');
+  res.json({ ok: true });
 });
 
 // 我发起的连通/解读记录

@@ -4,7 +4,7 @@
 
 const GLM_API_KEY = process.env.GLM_API_KEY || '';
 const GLM_BASE_URL = (process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/$/, '');
-const GLM_MODEL = process.env.GLM_MODEL || 'glm-4.5';
+const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 
 const hasGLM = !!GLM_API_KEY;
 

@@ -73,6 +73,7 @@ npm start                 # 默认 http://localhost:3000
 演示账号：
 - 患者端：打开首页自动登录演示患者「张明」
 - 医生端 `/doctor`：`doctor` / `123456`（心内科 陈伟东）、`doctor2` / `123456`（内分泌科 林慧）
+- 监管台 `/admin`：口令 `admin123`（AI 安全监管：一键暂停 / 报告召回 / 护栏红队评测 / 审计溯源；可用环境变量 `ADMIN_KEY` 覆盖）
 
 ## 五、环境变量
 
@@ -82,7 +83,7 @@ npm start                 # 默认 http://localhost:3000
 | `JWT_SECRET` | JWT 签名密钥（生产请修改） |
 | `GLM_API_KEY` | 智谱 GLM API Key（申请：https://open.bigmodel.cn/），留空则用内置演示引擎 |
 | `GLM_BASE_URL` | GLM 端点，默认 `https://open.bigmodel.cn/api/paas/v4` |
-| `GLM_MODEL` | 模型名（如 GLM-5.2 / glm-4.5 / glm-4-plus），默认 `glm-4.5` |
+| `GLM_MODEL` | 模型名（默认 `glm-5.2`；私有化/专属实例部署见需求开发书 4.1） |
 
 ## 六、免责声明
 
