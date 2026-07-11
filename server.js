@@ -28,6 +28,7 @@ app.get('/api/health', (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 医生端入口
+app.get('/sso', (req, res) => res.sendFile(path.join(__dirname, 'public', 'sso.html'))); // 温健钉免登·按 role 自动登录
 app.get('/doctor', (req, res) => res.sendFile(path.join(__dirname, 'public', 'doctor', 'index.html')));
 
 // 监管台入口
