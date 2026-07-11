@@ -32,6 +32,7 @@ app.get('/doctor', (req, res) => res.sendFile(path.join(__dirname, 'public', 'do
 
 // 监管台入口
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html')));
+app.get('/hospital', (req, res) => res.sendFile(path.join(__dirname, 'public', 'hospital', 'index.html')));
 
 // 患者端 SPA 兜底
 app.get('*', (req, res, next) => {

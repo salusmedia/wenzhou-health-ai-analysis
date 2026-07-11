@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>机构健康数据概览 · 健康温州</title>
+  <link rel="stylesheet" href="/css/app.css" />
+  <style>
+    body.hosp{background:#f4f6f8}
+    .hw{max-width:960px;margin:0 auto;padding:18px}
+    .hh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+    .hh h1{font-size:20px;color:#0f766e;margin:0}
+    .hh .sub{font-size:12.5px;color:#64748b;margin-top:3px}
+    .lk{color:#0f766e;font-size:13px;text-decoration:none;border:1px solid #cdece7;background:#e9f7f4;padding:7px 13px;border-radius:9px}
+    .metric{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+    .m{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:15px;text-align:center}
+    .m b{font-size:25px;display:block;color:#0f766e}.m span{font-size:12px;color:#64748b}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:16px}
+    .card h3{margin:0 0 12px;font-size:15px;color:#16324f}
+    .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:13.5px}
+    .row:last-child{border:none}
+    .bar{height:8px;border-radius:5px;background:#0f766e}
+    .warn{color:#b91c1c;font-weight:600}
+    .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;background:#e9f7f4;color:#0f766e}
+    .pill.red{background:#fee2e2;color:#b91c1c}.pill.amber{background:#fef3c7;color:#92600a}
+  </style>
+</head>
+<body class="hosp">
+  <div class="hw">
+    <div class="hh">
+      <div><h1>🏥 机构健康数据概览</h1><div class="sub">温州市中心医院 · 健康温州 AI 智慧健康 · 机构管理端</div></div>
+      <a class="lk" href="/">← 返回患者端</a>
+    </div>
+
+    <div class="metric">
+      <div class="m"><b>12,486</b><span>在管居民健康档案</span></div>
+      <div class="m"><b>3,204</b><span>本月 AI 健康解读</span></div>
+      <div class="m"><b>218</b><span>异常指标预警</span></div>
+      <div class="m"><b>92%</b><span>AI 解读采纳率</span></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>科室健康数据分布</h3>
+        <div class="row"><span style="width:80px">心血管内科</span><span class="bar" style="width:82%"></span><span>3,120</span></div>
+        <div class="row"><span style="width:80px">内分泌科</span><span class="bar" style="width:66%;background:#12a6a6"></span><span>2,540</span></div>
+        <div class="row"><span style="width:80px">呼吸内科</span><span class="bar" style="width:52%;background:#3b82f6"></span><span>1,980</span></div>
+        <div class="row"><span style="width:80px">全科医学</span><span class="bar" style="width:44%;background:#7b5cff"></span><span>1,720</span></div>
+      </div>
+      <div class="card">
+        <h3>本月异常指标预警 TOP</h3>
+        <div class="row"><span>血压偏高（≥140/90）</span><span class="pill red">86 例</span></div>
+        <div class="row"><span>空腹血糖偏高</span><span class="pill amber">63 例</span></div>
+        <div class="row"><span>血脂异常（LDL↑）</span><span class="pill amber">41 例</span></div>
+        <div class="row"><span>糖化血红蛋白偏高</span><span class="pill red">28 例</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>机构级健康管理指标</h3>
+      <div class="row"><span>慢病规范管理率</span><span>88%</span></div>
+      <div class="row"><span>高危人群随访覆盖率</span><span>81%</span></div>
+      <div class="row"><span>体检异常闭环处置率</span><span class="warn">73%（待提升）</span></div>
+      <div class="row"><span>医患同屏 AI 解读次数</span><span>1,146 次 / 月</span></div>
+    </div>
+
+    <div class="card">
+      <h3>近 6 月健康数据趋势</h3>
+      <svg viewBox="0 0 300 64" preserveAspectRatio="none" style="width:100%;height:64px"><polyline fill="none" stroke="#0f766e" stroke-width="2.5" points="0,48 60,42 120,38 180,30 240,22 300,16"/></svg>
+      <div style="font-size:13px;color:#64748b;margin-top:8px">健康档案与 AI 解读量持续增长，本月环比 ↑ 19%</div>
+    </div>
+    <div style="text-align:center;color:#94a3b8;font-size:12px;padding:16px 0">DEMO · 健康温州 · 机构健康数据概览（演示数据）</div>
+  </div>
+</body>
+</html>
